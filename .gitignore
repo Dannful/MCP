@@ -1,0 +1,5 @@
+.direnv
+*.out
+*.png
+mcts
+bin
