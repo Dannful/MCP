@@ -38,6 +38,7 @@ Sphere scene[] = {
     {{27.0, 32.5, 47.0}, 16.5, {0.75, 0.25, 0.25}, {0.0, 0.0, 0.0}},
     {{73.0, 32.5, 78.0}, 16.5, {0.25, 0.25, 0.75}, {0.0, 0.0, 0.0}},
 };
+
 double intersect(Ray r, int *id) {
   double min_t = 1e20;
   *id = -1;
@@ -51,17 +52,22 @@ double intersect(Ray r, int *id) {
     double t = b - det;
     if (t > 1e-4 && t < min_t) {
       min_t = t;
-      *id = i;
+      {
+        *id = i;
+      }
     }
     t = b + det;
     if (t > 1e-4 && t < min_t) {
       min_t = t;
-      *id = i;
+      {
+        *id = i;
+      }
     }
   }
   return min_t < 1e20 ? min_t : 0;
 }
-Vec3 trace(Ray r, int depth) {
+
+Vec3 trace(Ray r, int depth, unsigned int *seed) {
   int id;
   double t = intersect(r, &id);
   if (t == 0)
@@ -71,8 +77,8 @@ Vec3 trace(Ray r, int depth) {
   Vec3 normal = vec_normalize(vec_sub(hit_point, obj->center));
   if (depth > 5)
     return obj->emission;
-  double r1 = 2 * M_PI * ((double)rand() / RAND_MAX);
-  double r2 = ((double)rand() / RAND_MAX);
+  double r1 = 2 * M_PI * ((double)rand_r(seed) / RAND_MAX);
+  double r2 = ((double)rand_r(seed) / RAND_MAX);
   double r2s = sqrt(r2);
   Vec3 w = normal;
   Vec3 u = vec_normalize(vec_dot(w, (Vec3){0, 0, 1}) > 0.1 ? (Vec3){0, 1, 0}
@@ -83,9 +89,8 @@ Vec3 trace(Ray r, int depth) {
       vec_normalize(vec_add(vec_mul_scalar(u, cos(r1) * r2s),
                             vec_add(vec_mul_scalar(v, sin(r1) * r2s),
                                     vec_mul_scalar(w, sqrt(1 - r2)))));
-  return vec_add(
-      obj->emission,
-      vec_mul(obj->color, trace((Ray){hit_point, new_dir}, depth + 1)));
+  Vec3 raytrace = trace((Ray){hit_point, new_dir}, depth + 1, seed);
+  return vec_add(obj->emission, vec_mul(obj->color, raytrace));
 }
 
 int main(int argc, char **argv) {
@@ -101,27 +106,27 @@ int main(int argc, char **argv) {
              cx.x * camera.direction.z - cx.z * camera.direction.x,
              cx.y * camera.direction.x - cx.x * camera.direction.y});
   cy = vec_mul_scalar(cy, -0.5135);
-  Vec3 *image = (Vec3 *)malloc(width * height * sizeof(Vec3));
-  srand(time(NULL));
+  Vec3 *image = (Vec3 *)calloc(sizeof(Vec3), width * height);
   printf("Rendering a %d x %d image with %d samples per pixel...\n", width,
          height, samples);
   double before = omp_get_wtime();
+
 #pragma omp parallel for collapse(2)
   for (int y = 0; y < height; y++) {
     for (int x = 0; x < width; x++) {
+      unsigned int seed =
+          (unsigned int)(omp_get_wtime() * 1000) + omp_get_thread_num();
       int index = (height - 1 - y) * width + x;
-      image[index] = (Vec3){0, 0, 0};
 
-#pragma omp task
       for (int s = 0; s < samples; s++) {
-        double r1 = 2 * ((double)rand() / RAND_MAX) - 1;
-        double r2 = 2 * ((double)rand() / RAND_MAX) - 1;
+        double r1 = 2 * ((double)rand_r(&seed) / RAND_MAX) - 1;
+        double r2 = 2 * ((double)rand_r(&seed) / RAND_MAX) - 1;
         Vec3 offset =
             vec_add(vec_mul_scalar(cx, (r1 + x - width / 2.0) / width),
                     vec_mul_scalar(cy, (r2 + y - height / 2.0) / height));
         Ray ray = {vec_add(camera.origin, offset),
                    vec_normalize(vec_add(camera.direction, offset))};
-        image[index] = vec_add(image[index], trace(ray, 0));
+        image[index] = vec_add(image[index], trace(ray, 0, &seed));
       }
       image[index] = vec_mul_scalar(image[index], 1.0 / samples);
     }
@@ -131,6 +136,8 @@ int main(int argc, char **argv) {
   printf("Saving image to render.png...\n");
   const int channels = 3;
   unsigned char *png_data = (unsigned char *)malloc(width * height * channels);
+
+#pragma omp parallel for
   for (int i = 0; i < width * height; i++) {
     int r = (int)(pow(fmin(1.0, image[i].x), 1 / 2.2) * 255 + 0.5);
     int g = (int)(pow(fmin(1.0, image[i].y), 1 / 2.2) * 255 + 0.5);

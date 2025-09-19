@@ -19,7 +19,7 @@
           buildInputs = with pkgs; [ clang-tools llvmPackages.openmp ];
         };
         packages.default = pkgs.writeShellScriptBin "run-mcp" ''
-          ${mcp}/bin/mcts 1280 720 50
+          ${mcp}/bin/mcts 3840 2160 900
         '';
         apps.default = {
           type = "app";
