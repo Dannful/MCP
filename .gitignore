@@ -3,3 +3,5 @@
 *.png
 mcts
 bin
+result
+*.csv

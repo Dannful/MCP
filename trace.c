@@ -2,7 +2,6 @@
 #include <omp.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <time.h>
 
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
@@ -52,16 +51,12 @@ double intersect(Ray r, int *id) {
     double t = b - det;
     if (t > 1e-4 && t < min_t) {
       min_t = t;
-      {
-        *id = i;
-      }
+      *id = i;
     }
     t = b + det;
     if (t > 1e-4 && t < min_t) {
       min_t = t;
-      {
-        *id = i;
-      }
+      *id = i;
     }
   }
   return min_t < 1e20 ? min_t : 0;
@@ -89,7 +84,12 @@ Vec3 trace(Ray r, int depth, unsigned int *seed) {
       vec_normalize(vec_add(vec_mul_scalar(u, cos(r1) * r2s),
                             vec_add(vec_mul_scalar(v, sin(r1) * r2s),
                                     vec_mul_scalar(w, sqrt(1 - r2)))));
-  Vec3 raytrace = trace((Ray){hit_point, new_dir}, depth + 1, seed);
+  Vec3 raytrace;
+#pragma omp task
+  {
+    raytrace = trace((Ray){hit_point, new_dir}, depth + 1, seed);
+  }
+#pragma omp taskwait
   return vec_add(obj->emission, vec_mul(obj->color, raytrace));
 }
 
@@ -111,7 +111,6 @@ int main(int argc, char **argv) {
          height, samples);
   double before = omp_get_wtime();
 
-#pragma omp parallel for collapse(2)
   for (int y = 0; y < height; y++) {
     for (int x = 0; x < width; x++) {
       unsigned int seed =

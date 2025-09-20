@@ -14,9 +14,19 @@
             cp ./mcts $out/bin/
           '';
         };
+        rEnv = pkgs.rWrapper.override {
+          packages = with pkgs.rPackages; [
+            languageserver
+            lintr
+            here
+            DoE_base
+            FrF2
+            tidyverse
+          ];
+        };
       in {
         devShell = pkgs.mkShell {
-          buildInputs = with pkgs; [ clang-tools llvmPackages.openmp ];
+          buildInputs = with pkgs; [ clang-tools llvmPackages.openmp rEnv ];
         };
         packages.default = pkgs.writeShellScriptBin "run-mcp" ''
           ${mcp}/bin/mcts 3840 2160 900

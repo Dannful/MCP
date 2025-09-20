@@ -1,17 +1,10 @@
-CC = gcc
-CFLAGS = -lm -fopenmp -O3
-TARGET = mcts
-SRC = main.c
+all:
+	echo "Please specify a target (dimensions, samples or trace)
 
-all: $(TARGET)
-
-$(TARGET): $(SRC)
-	$(CC) $(CFLAGS) -o $(TARGET) $(SRC)
+%.mtp: %.c
+	gcc -lm -fopenmp $< -o $@
 
 clean:
-	rm -f $(TARGET)
-
-run:
-	./$(TARGET) $(ARGS)
+	rm -f *.mtp
 
 .PHONY: all clean
