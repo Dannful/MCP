@@ -2,19 +2,18 @@
 #SBATCH --job-name=mtp
 #SBATCH --partition=hype
 #SBATCH --nodes=1
-#SBATCH --ntasks=32
-#SBATCH --time=72:00:00
+#SBATCH --ntasks=40
+#SBATCH --time=24:00:00
 #SBATCH --output=%x_%j.out
 #SBATCH --error=%x_%j.err
 
-experiment_count=1
 CSV_FILE=./experiments.csv
 mapfile -t csv_lines < <(tail -n +2 "$CSV_FILE")
 
 cd mcp
-make dimensions.mtp
+make collapse.mtp
 make samples.mtp
-make trace.mtp
+make tasks.mtp
 
 for line in "${csv_lines[@]}"; do
     [[ -z "$line" ]] && continue # skip empty

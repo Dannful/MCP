@@ -84,12 +84,7 @@ Vec3 trace(Ray r, int depth, unsigned int *seed) {
       vec_normalize(vec_add(vec_mul_scalar(u, cos(r1) * r2s),
                             vec_add(vec_mul_scalar(v, sin(r1) * r2s),
                                     vec_mul_scalar(w, sqrt(1 - r2)))));
-  Vec3 raytrace;
-#pragma omp task
-  {
-    raytrace = trace((Ray){hit_point, new_dir}, depth + 1, seed);
-  }
-#pragma omp taskwait
+  Vec3 raytrace = trace((Ray){hit_point, new_dir}, depth + 1, seed);
   return vec_add(obj->emission, vec_mul(obj->color, raytrace));
 }
 
@@ -111,27 +106,35 @@ int main(int argc, char **argv) {
          height, samples);
   double before = omp_get_wtime();
 
-  for (int y = 0; y < height; y++) {
-    for (int x = 0; x < width; x++) {
-      unsigned int seed =
-          (unsigned int)(omp_get_wtime() * 1000) + omp_get_thread_num();
-      int index = (height - 1 - y) * width + x;
+#pragma omp parallel
+#pragma omp single
+  {
+    for (int y = 0; y < height; y++) {
+      for (int x = 0; x < width; x++) {
+        unsigned int seed =
+            (unsigned int)(omp_get_wtime() * 1000) + omp_get_thread_num();
+        int index = (height - 1 - y) * width + x;
 
-      for (int s = 0; s < samples; s++) {
-        double r1 = 2 * ((double)rand_r(&seed) / RAND_MAX) - 1;
-        double r2 = 2 * ((double)rand_r(&seed) / RAND_MAX) - 1;
-        Vec3 offset =
-            vec_add(vec_mul_scalar(cx, (r1 + x - width / 2.0) / width),
-                    vec_mul_scalar(cy, (r2 + y - height / 2.0) / height));
-        Ray ray = {vec_add(camera.origin, offset),
-                   vec_normalize(vec_add(camera.direction, offset))};
-        image[index] = vec_add(image[index], trace(ray, 0, &seed));
+#pragma omp task
+        {
+          for (int s = 0; s < samples; s++) {
+            double r1 = 2 * ((double)rand_r(&seed) / RAND_MAX) - 1;
+            double r2 = 2 * ((double)rand_r(&seed) / RAND_MAX) - 1;
+            Vec3 offset =
+                vec_add(vec_mul_scalar(cx, (r1 + x - width / 2.0) / width),
+                        vec_mul_scalar(cy, (r2 + y - height / 2.0) / height));
+            Ray ray = {vec_add(camera.origin, offset),
+                       vec_normalize(vec_add(camera.direction, offset))};
+            image[index] = vec_add(image[index], trace(ray, 0, &seed));
+          }
+          image[index] = vec_mul_scalar(image[index], 1.0 / samples);
+        }
       }
-      image[index] = vec_mul_scalar(image[index], 1.0 / samples);
     }
   }
+#pragma omp taskwait
   double after = omp_get_wtime();
-  fprintf(stderr, "\nDone rendering. Time: %lf seconds.\n", after - before);
+  printf("\nDone rendering. Time: %lf seconds.\n", after - before);
   printf("Saving image to render.png...\n");
   const int channels = 3;
   unsigned char *png_data = (unsigned char *)malloc(width * height * channels);
