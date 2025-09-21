@@ -37,4 +37,8 @@ for line in "${csv_lines[@]}"; do
     vtune -collect hpc-performance \
           -result-dir "$path" \
           ./$otimization.mtp $resolution $samples "$path/output.png" 2>&1 > "$path/logs.out"
+    vtune -report summary \
+          -result-dir "$path" \
+          -format csv \
+          -report-output "$path/vtune_reports.csv"
 done
