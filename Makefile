@@ -2,7 +2,7 @@ all:
 	echo "Please specify a target (dimensions, samples or trace)
 
 %.mtp: %.c
-	gcc -lm -fopenmp $< -o $@
+	gcc $< -o $@ -lm -fopenmp
 
 clean:
 	rm -f *.mtp
