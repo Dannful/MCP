@@ -28,13 +28,13 @@ for line in "${csv_lines[@]}"; do
     echo "  Threads: $threads"
     echo "  Blocks: $blocks"
 
-
-    path=$(hostname)/$resolution/$otimization/$samples/$threads
+    block=$(echo "$blocks" | sed 's/\.//')
+    path="$(hostname)/$resolution/$otimization/$samples/$threads/$block"
+    echo "Directory: $path"
     mkdir -p $path
     resolution=$(echo "$resolution" | sed 's/x/ /')
     export OMP_NUM_THREADS=$threads
-    vtune -collect performance-snapshot \
-          -collect hotspots \
-          -collect hpc-performance \
-          ./$otimization.mtp $resolution $samples "$path/$blocks.png" 2>&1 > "$path/$blocks.out"
+    vtune -collect hpc-performance \
+          -result-dir "$path" \
+          ./$otimization.mtp $resolution $samples "$path/output.png" 2>&1 > "$path/logs.out"
 done
