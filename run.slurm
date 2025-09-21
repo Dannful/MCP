@@ -10,6 +10,8 @@
 CSV_FILE=./experiments.csv
 mapfile -t csv_lines < <(tail -n +2 "$CSV_FILE")
 
+source /home/intel/oneapi/vtune/2021.1.1/vtune-vars.sh
+
 make collapse.mtp
 make samples.mtp
 make tasks.mtp
@@ -30,5 +32,9 @@ for line in "${csv_lines[@]}"; do
     path=$(hostname)/$resolution/$otimization/$samples/$threads
     mkdir -p $path
     resolution=$(echo "$resolution" | sed 's/x/ /')
-    OMP_NUM_THREADS=$threads ./$otimization.mtp $resolution $samples "$path/$blocks.png" 2>&1 > "$path/$blocks.out"
+    export OMP_NUM_THREADS=$threads
+    vtune -collect performance-snapshot \
+          -collect hotspots \
+          -collect hpc-performance \
+          ./$otimization.mtp $resolution $samples "$path/$blocks.png" 2>&1 > "$path/$blocks.out"
 done
