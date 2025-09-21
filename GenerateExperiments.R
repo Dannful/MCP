@@ -17,7 +17,7 @@ generate_experiment <- function(factors, seed, path) {
 
 seed <- 0
 factors <- list(
-  Resolution = c("640 480", "3840 2160"),
+  Resolution = c("640x480", "3840x2160"),
   Otimization = c("collapse", "samples", "tasks"),
   Samples = c(30, 900),
   Threads = c(1, 20, 40)

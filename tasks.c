@@ -92,6 +92,7 @@ int main(int argc, char **argv) {
   int width = atoi(argv[1]);
   int height = atoi(argv[2]);
   int samples = atoi(argv[3]);
+  char *path = argv[4];
 
   Vec3 camera_direction = {0, -0.042612, -1};
   Ray camera = {{50, 52, 295.6}, vec_normalize(camera_direction)};
@@ -148,7 +149,7 @@ int main(int argc, char **argv) {
     png_data[i * channels + 1] = g;
     png_data[i * channels + 2] = b;
   }
-  int success = stbi_write_png("render.png", width, height, channels, png_data,
+  int success = stbi_write_png(path, width, height, channels, png_data,
                                width * channels);
   if (success) {
     printf("Image saved successfully.\n");

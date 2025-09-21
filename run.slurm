@@ -10,7 +10,6 @@
 CSV_FILE=./experiments.csv
 mapfile -t csv_lines < <(tail -n +2 "$CSV_FILE")
 
-cd mcp
 make collapse.mtp
 make samples.mtp
 make tasks.mtp
@@ -27,7 +26,9 @@ for line in "${csv_lines[@]}"; do
     echo "  Threads: $threads"
     echo "  Blocks: $blocks"
 
+
     path=$(hostname)/$resolution/$otimization/$samples/$threads
     mkdir -p $path
-    OMP_NUM_THREADS=$threads $otimization.mtp $resolution $samples 2>&1 > $path/$blocks.out
+    resolution=$(echo "$resolution" | sed 's/x/ /')
+    OMP_NUM_THREADS=$threads ./$otimization.mtp $resolution $samples "$path/$blocks.png" 2>&1 > "$path/$blocks.out"
 done
