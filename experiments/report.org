@@ -1,0 +1,162 @@
+#+TITLE: Programação distribuída e paralela - Trabalho OpenMP
+#+AUTHOR: Leonardo Heisler, Thiago dos Santos Gonçalves e Vinícius Daniel
+#+DATE: \today
+#+LATEX_CLASS: article
+#+LATEX_HEADER: \hypersetup{colorlinks=true, linkcolor=blue, urlcolor=blue}
+#+LATEX_HEADER: \usepackage{color}
+#+LATEX_HEADER: \usepackage{minted}
+#+LATEX_HEADER: \usepackage{graphicx}
+#+LATEX_HEADER: \usepackage{indentfirst}
+#+LATEX_HEADER: \usepackage{float}
+#+LATEX_HEADER: \usepackage{booktabs}
+#+LATEX_HEADER: \setminted{frame=single,linenos=true,breaklines=true}
+
+#+LATEX: \clearpage
+
+* Experimentos
+
+Primeiramente, vamos começar iterando sobre os experimentos executados.
+Analisemos o arquivo que descreve alguns dos experimentos a serem executados:
+
+#+NAME: experiments
+#+begin_src R :results value :colnames yes :exports results
+  library(tidyverse)
+  read.csv(here::here("experiments.csv")) |>
+    slice_head(n = 15)
+#+end_src
+
+#+RESULTS: experiments
+
+Observamos aqui os fatores dos experimentos:
+1. *Resolução*: $3840 \times 2160$ e $640 \times 480$.
+2. *Otimização*: paralelismo a nível da imagem, a nível das /samples/ e com tarefas.
+3. *Número de /samples/*: 30 e 900.
+4. *Quantidade de /threads/*: 1, 20 e 40.
+
+Ademais, nota-se que foram utilizadas *2* replicações para cada experimento, totalizando *3* execuções por combinação de fatores.
+
+Finalmente, os experimentos foram executados na máquina *hype5* do PCAD, com uma estrutura de diretórios definida em função dos fatores.
+
+#+LATEX: \clearpage
+
+* Resultados
+
+Primeiramente, vamos utilizar a linguagem *R* para colocar todos os dados em uma tabela.
+
+Em seguida, vamos visualizar alguns dos dados.
+
+#+NAME: results_join
+#+begin_src R :results value table :exports results :colnames yes :session
+  library(tidyverse)
+  experiments <- read_csv(here::here("experiments.csv"))
+
+  read_row_data <- function(Resolution, Otimization, Samples, Threads, Blocks) {
+    dir_path <- here::here(paste0("experiments", "/", Resolution, "/", Otimization, "/", Samples, "/", Threads, "/", Blocks))
+    stdout_path <- paste0(dir_path, "/", "logs.out")
+    stdout_lines <- readLines(stdout_path)
+    render_line <- grep("Done rendering. Time:", stdout_lines, value = TRUE)
+    time_str <- str_extract(render_line, "^Done rendering\\. Time: ([0-9.]+) seconds\\.$", group = 1)
+    time_numeric <- as.numeric(time_str)
+    vtune_path = paste0(dir_path, "/", "vtune_reports.csv")
+    vtune_csv <- read_delim(vtune_path, delim = "\t", show_col_types = FALSE)
+
+    vtune_csv %>%
+      select(`Metric Name`, `Metric Value`) %>%
+      filter(`Metric Name` %in% c("CPI Rate", "Average CPU Frequency", "Effective Physical Core Utilization", "Effective Logical Core Utilization", "Elapsed Time")) %>%
+      mutate(`Metric Name` = recode(`Metric Name`,
+        "CPI Rate" = "CPI",
+        "Average CPU Frequency" = "CPU",
+        "Effective Physical Core Utilization" = "PC",
+        "Effective Logical Core Utilization" = "LC",
+        "Elapsed Time" = "Total time"
+      )) %>%
+      mutate(`Metric Value` = case_when(
+        `Metric Name` == "CPU" ~ round(as.numeric(`Metric Value`) / 1e9, digits = 3),
+        `Metric Name` %in% c("PC", "LC") ~ as.numeric(str_extract(`Metric Value`, "^([^%])+%", group = 1)) / 100,
+        TRUE ~ as.numeric(`Metric Value`)
+      )) %>%
+      rename(`Metric` = "Metric Name") %>%
+      rename(`Value` = "Metric Value") %>%
+      add_row(`Metric` = "Calc. time", `Value` = round(time_numeric, digits = 3))
+  }
+
+  results <- experiments %>%
+                  mutate(`Blocks` = substring(Blocks, 3)) %>%
+  		mutate(results = pmap(., read_row_data)) %>%
+  		unnest(results)
+  results %>%
+    select(-`Blocks`) %>%
+    slice_head(n = 15)
+#+end_src
+
+
+#+ATTR_LATEX: :environment tabularx :booktabs t :width \textwidth
+#+RESULTS: results_join
+| Resolution | Otimization | Samples | Threads | Metric     |     Value |
+|------------+-------------+---------+---------+------------+-----------|
+|  3840x2160 | collapse    |      30 |      20 | Total time | 10.947427 |
+|  3840x2160 | collapse    |      30 |      20 | CPI        |  0.512917 |
+|  3840x2160 | collapse    |      30 |      20 | CPU        |     2.656 |
+|  3840x2160 | collapse    |      30 |      20 | PC         |      0.07 |
+|  3840x2160 | collapse    |      30 |      20 | LC         |      0.05 |
+|  3840x2160 | collapse    |      30 |      20 | Calc. time |     8.303 |
+|  3840x2160 | samples     |      30 |       1 | Total time | 85.500342 |
+|  3840x2160 | samples     |      30 |       1 | CPI        |  0.500227 |
+|  3840x2160 | samples     |      30 |       1 | CPU        |     2.987 |
+|  3840x2160 | samples     |      30 |       1 | PC         |         0 |
+|  3840x2160 | samples     |      30 |       1 | LC         |      0.05 |
+|  3840x2160 | samples     |      30 |       1 | Calc. time |    82.642 |
+|    640x480 | collapse    |      30 |       1 | Total time |  3.002269 |
+|    640x480 | collapse    |      30 |       1 | CPI        |  0.479128 |
+|    640x480 | collapse    |      30 |       1 | CPU        |     2.986 |
+
+Agora que possuímos os dados de todas as execuções, podemos computar algumas agregações.
+
+
+#+NAME: aggregations
+#+begin_src R :results value :exports results :session :colnames yes
+        results %>%
+          group_by(`Metric`) %>%
+          summarise(`Mean` = round(mean(`Value`), digits = 3),
+                    `Standard deviation` = round(sd(`Value`), digits = 3),
+                    `Min` = round(min(`Value`), digits = 3),
+                    `Max` = round(max(`Value`), digits = 3))
+#+end_src
+
+#+RESULTS: aggregations
+| Metric     |    Mean | Standard deviation |   Min |      Max |
+|------------+---------+--------------------+-------+----------|
+| CPI        |   1.802 |              1.815 | 0.475 |    6.166 |
+| CPU        |   2.733 |              0.181 | 2.594 |    2.989 |
+| Calc. time | 310.435 |            661.401 | 0.274 | 2290.334 |
+| LC         |   0.045 |              0.023 |     0 |     0.09 |
+| PC         |   0.036 |              0.034 |     0 |     0.09 |
+| Total time | 311.889 |            662.048 | 0.384 | 2293.335 |
+
+Em seguida, alguns gráficos.
+#+NAME: speedup
+#+begin_src R :results graphics :exports results :session :file chart.png
+  library(ggplot2)
+  total_times <- results %>%
+    filter(`Metric` == "Total time") %>%
+    select(-`Metric`) %>%
+    group_by(`Resolution`, `Otimization`, `Samples`, `Threads`) %>%
+    summarise(`Value` = mean(`Value`))
+
+  speed_ups <- total_times %>%
+    group_by(`Resolution`, `Otimization`, `Samples`) %>%
+    mutate(`Speedup` = `Value`[`Threads` == 1] / `Value`) %>%
+    select(-`Value`) %>%
+    filter(`Threads` > 1) %>%
+    ungroup()
+
+  efficiencies <- speed_ups %>%
+    mutate(`Efficiency` = `Speedup` / `Threads`) %>%
+    select(-`Speedup`)
+
+  plot <- ggplot(speed_ups, aes(x = `Threads`, `Speedup`)) +
+    geom_point()
+  ggsave("chart.png", plot = plot, width = 6, height = 4, units = "in", dpi = 300)
+#+end_src
+
+#+RESULTS: speedup

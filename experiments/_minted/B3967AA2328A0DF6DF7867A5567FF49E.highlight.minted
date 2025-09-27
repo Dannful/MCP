@@ -1,0 +1,5 @@
+\begin{MintedVerbatim}[commandchars=\\\{\}]
+\PYG{n+nf}{library}\PYG{p}{(}\PYG{n}{tidyverse}\PYG{p}{)}
+\PYG{n+nf}{read.csv}\PYG{p}{(}\PYG{n}{here}\PYG{o}{::}\PYG{n+nf}{here}\PYG{p}{(}\PYG{l+s}{\PYGZdq{}experiments.csv\PYGZdq{}}\PYG{p}{))}\PYG{+w}{ }\PYG{o}{|\PYGZgt{}}
+\PYG{+w}{  }\PYG{n+nf}{slice\PYGZus{}head}\PYG{p}{(}\PYG{n}{n}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{l+m}{15}\PYG{p}{)}
+\end{MintedVerbatim}

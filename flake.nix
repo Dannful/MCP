@@ -26,7 +26,13 @@
         };
       in {
         devShell = pkgs.mkShell {
-          buildInputs = with pkgs; [ clang-tools llvmPackages.openmp rEnv ];
+          buildInputs = [
+            pkgs.clang-tools
+            pkgs.llvmPackages.openmp
+            rEnv
+            (pkgs.texlive.combined.scheme-full.withPackages
+              (ps: with ps; [ minted ]))
+          ];
         };
         packages.default = pkgs.writeShellScriptBin "run-mcp" ''
           ${mcp}/bin/mcts 3840 2160 900

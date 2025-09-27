@@ -5,3 +5,7 @@ mcts
 bin
 result
 *.csv
+experiments/report.pdf
+experiments/report.org~
+experiments/report.tex
+chart.pdf
