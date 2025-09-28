@@ -115,12 +115,12 @@ Agora que possuímos os dados de todas as execuções, podemos computar algumas 
 
 #+NAME: aggregations
 #+begin_src R :results value :exports results :session :colnames yes
-        results %>%
-          group_by(`Metric`) %>%
-          summarise(`Mean` = round(mean(`Value`), digits = 3),
-                    `Standard deviation` = round(sd(`Value`), digits = 3),
-                    `Min` = round(min(`Value`), digits = 3),
-                    `Max` = round(max(`Value`), digits = 3))
+results %>%
+    group_by(`Metric`) %>%
+    summarise(`Mean` = round(mean(`Value`), digits = 3),
+	    `Standard deviation` = round(sd(`Value`), digits = 3),
+	    `Min` = round(min(`Value`), digits = 3),
+	    `Max` = round(max(`Value`), digits = 3))
 #+end_src
 
 #+RESULTS: aggregations
@@ -134,9 +134,8 @@ Agora que possuímos os dados de todas as execuções, podemos computar algumas 
 | Total time | 311.889 |            662.048 | 0.384 | 2293.335 |
 
 Em seguida, alguns gráficos.
-#+NAME: speedup
-#+begin_src R :results graphics :exports results :session :file chart.png
-  library(ggplot2)
+
+#+begin_src R :results value :exports none :session :colnames yes
   total_times <- results %>%
     filter(`Metric` == "Total time") %>%
     select(-`Metric`) %>%
@@ -154,9 +153,46 @@ Em seguida, alguns gráficos.
     mutate(`Efficiency` = `Speedup` / `Threads`) %>%
     select(-`Speedup`)
 
+  speed_ups
+#+end_src
+
+#+RESULTS:
+| Resolution | Otimization | Samples | Threads |           Speedup |
+|------------+-------------+---------+---------+-------------------|
+|  3840x2160 | collapse    |      30 |      20 |  7.23909264844371 |
+|  3840x2160 | collapse    |      30 |      40 |  9.81166525829293 |
+|  3840x2160 | collapse    |     900 |      20 |  9.51441620394182 |
+|  3840x2160 | collapse    |     900 |      40 |  15.0587970674006 |
+|  3840x2160 | samples     |      30 |      20 | 0.846415049912913 |
+|  3840x2160 | samples     |      30 |      40 | 0.561588780653092 |
+|  3840x2160 | samples     |     900 |      20 |  1.49517385190169 |
+|  3840x2160 | samples     |     900 |      40 |  2.20086955349926 |
+|  3840x2160 | tasks       |      30 |      20 |  1.45906039914403 |
+|  3840x2160 | tasks       |      30 |      40 | 0.927762740900412 |
+|  3840x2160 | tasks       |     900 |      20 |  9.64086757248645 |
+|  3840x2160 | tasks       |     900 |      40 |  14.4871645419556 |
+|    640x480 | collapse    |      30 |      20 |  5.66555602703417 |
+|    640x480 | collapse    |      30 |      40 |  6.19741412945498 |
+|    640x480 | collapse    |     900 |      20 |  9.32962730664794 |
+|    640x480 | collapse    |     900 |      40 |  14.4850142460698 |
+|    640x480 | samples     |      30 |      20 | 0.917347144903528 |
+|    640x480 | samples     |      30 |      40 | 0.567888356876994 |
+|    640x480 | samples     |     900 |      20 |  1.59766000744695 |
+|    640x480 | samples     |     900 |      40 |  2.36312195122123 |
+|    640x480 | tasks       |      30 |      20 |  1.61711337816796 |
+|    640x480 | tasks       |      30 |      40 | 0.879006979987074 |
+|    640x480 | tasks       |     900 |      20 |  9.74833032540762 |
+|    640x480 | tasks       |     900 |      40 |  14.6632901599251 |
+
+#+NAME: speedup
+#+begin_src R :results graphics file :exports results :session :file chart.pdf :width 5 :height 5
+  library(ggplot2)
+
   plot <- ggplot(speed_ups, aes(x = `Threads`, `Speedup`)) +
     geom_point()
-  ggsave("chart.png", plot = plot, width = 6, height = 4, units = "in", dpi = 300)
+  ggsave(here::here("experiments/chart.pdf"), plot = plot, width = 6, height = 4, units = "in", dpi = 300)
 #+end_src
 
 #+RESULTS: speedup
+[[file:chart.pdf]]
+
