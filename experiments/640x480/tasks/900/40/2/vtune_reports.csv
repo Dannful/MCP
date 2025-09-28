@@ -1,0 +1,29 @@
+Hierarchy Level	Metric Name	Metric Value
+0	Elapsed Time	6.037698
+1	CPI Rate	1.101110
+1	Average CPU Frequency	2594377739.777064
+1	Total Thread Count	40
+0	Effective Physical Core Utilization	96.6% (19.323 out of 20)
+1	Effective Logical Core Utilization	96.3% (38.521 out of 40)
+0	Memory Bound	25.6
+1	Cache Bound	18.7
+1	DRAM Bound	N/A with HT on
+2	DRAM Bandwidth Bound	0.0
+1	NUMA: % of Remote Accesses	0.0
+1	Bandwidth Utilization	
+1	Bandwidth Domain	Platform Maximum	Observed Maximum	Average	% of Elapsed Time with High BW Utilization(%)
+1	DRAM, GB/sec	126.000000	10.700000	7.398516	0.0
+1	DRAM Single-Package, GB/sec	63.000000	10.600000	7.622111	0.0
+0	Collection and Platform Info	
+1	Application Command Line	./tasks.mtp "640" "480" "900" "hype5/640x480/tasks/900/40/2/output.png" 
+1	Operating System	6.1.0-28-amd64 12.12
+1	Computer Name	hype5
+1	Result Size	67187512
+1	Collection start time	04:55:21 22/09/2025 UTC
+1	Collection stop time	04:55:27 22/09/2025 UTC
+1	Collector Type	Driverless Perf per-process sampling
+1	CPU	
+2	Name	Intel(R) Xeon(R) E5/E7 v3 Processor code named Haswell
+2	Frequency	2294686046
+2	Logical CPU Count	40
+2	Max DRAM Single-Package Bandwidth	63000000000.000000
