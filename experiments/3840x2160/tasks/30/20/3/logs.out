@@ -1,0 +1,68 @@
+Rendering a 3840 x 2160 image with 30 samples per pixel...
+
+Done rendering. Time: 46.977722 seconds.
+Saving image to render.png...
+Image saved successfully.
+Elapsed Time: 49.699s
+    CPI Rate: 3.275
+     | The CPI may be too high. This could be caused by issues such as memory
+     | stalls, instruction starvation, branch misprediction or long latency
+     | instructions. Explore the other hardware-related metrics to identify what
+     | is causing high CPI.
+     |
+    Average CPU Frequency: 2.595 GHz 
+    Total Thread Count: 20
+Effective Physical Core Utilization: 90.0% (17.994 out of 20)
+    Effective Logical Core Utilization: 47.0% (18.785 out of 40)
+     | The metric value is low, which may signal a poor utilization of logical
+     | CPU cores while the utilization of physical cores is acceptable. Consider
+     | using logical cores, which in some cases can improve processor throughput
+     | and overall performance of multi-threaded applications.
+     |
+Memory Bound: 72.6% of Pipeline Slots
+ | The metric value is high. This can indicate that the significant fraction of
+ | execution pipeline slots could be stalled due to demand memory load and
+ | stores. Use Memory Access analysis to have the metric breakdown by memory
+ | hierarchy, memory bandwidth information, correlation by memory objects.
+ |
+    Cache Bound: 36.8% of Clockticks
+     | A significant proportion of cycles are being spent on data fetches from
+     | caches. Check Memory Access analysis to see if accesses to L2 or L3
+     | caches are problematic and consider applying the same performance tuning
+     | as you would for a cache-missing workload. This may include reducing the
+     | data working set size, improving data access locality, blocking or
+     | partitioning the working set to fit in the lower cache levels, or
+     | exploiting hardware prefetchers. Consider using software prefetchers, but
+     | note that they can interfere with normal loads, increase latency, and
+     | increase pressure on the memory system. This metric includes coherence
+     | penalties for shared data. Check Microarchitecture Exploration analysis
+     | to see if contested accesses or data sharing are indicated as likely
+     | issues.
+     |
+    DRAM Bound: N/A with HT on
+        DRAM Bandwidth Bound: 0.0% of Elapsed Time
+    NUMA: % of Remote Accesses: 100.0%
+
+    Bandwidth Utilization
+    Bandwidth Domain             Platform Maximum  Observed Maximum  Average  % of Elapsed Time with High BW Utilization(%)
+    ---------------------------  ----------------  ----------------  -------  ---------------------------------------------
+    DRAM, GB/sec                 120                         13.000    2.944                                           0.0%
+    DRAM Single-Package, GB/sec  60                          11.200    2.164                                           0.0%
+Collection and Platform Info
+    Application Command Line: ./tasks.mtp "3840" "2160" "30" "hype5/3840x2160/tasks/30/20/3/output.png" 
+    Operating System: 6.1.0-28-amd64 12.12
+    Computer Name: hype5
+    Result Size: 175.0 MB 
+    Collection start time: 07:38:55 22/09/2025 UTC
+    Collection stop time: 07:39:45 22/09/2025 UTC
+    Collector Type: Driverless Perf per-process sampling
+    CPU
+        Name: Intel(R) Xeon(R) E5/E7 v3 Processor code named Haswell
+        Frequency: 2.295 GHz 
+        Logical CPU Count: 40
+        Max DRAM Single-Package Bandwidth: 60.000 GB/s
+
+If you want to skip descriptions of detected performance issues in the report,
+enter: vtune -report summary -report-knob show-issues=false -r <my_result_dir>.
+Alternatively, you may view the report in the csv format: vtune -report
+<report_name> -format=csv.

@@ -1,0 +1,50 @@
+Rendering a 640 x 480 image with 900 samples per pixel...
+
+Done rendering. Time: 8.952584 seconds.
+Saving image to render.png...
+Image saved successfully.
+Elapsed Time: 9.068s
+    CPI Rate: 0.841
+    Average CPU Frequency: 2.595 GHz 
+    Total Thread Count: 20
+Effective Physical Core Utilization: 96.0% (19.197 out of 20)
+    Effective Logical Core Utilization: 48.9% (19.577 out of 40)
+     | The metric value is low, which may signal a poor utilization of logical
+     | CPU cores while the utilization of physical cores is acceptable. Consider
+     | using logical cores, which in some cases can improve processor throughput
+     | and overall performance of multi-threaded applications.
+     |
+Memory Bound: 38.9% of Pipeline Slots
+ | The metric value is high. This can indicate that the significant fraction of
+ | execution pipeline slots could be stalled due to demand memory load and
+ | stores. Use Memory Access analysis to have the metric breakdown by memory
+ | hierarchy, memory bandwidth information, correlation by memory objects.
+ |
+    Cache Bound: 12.1% of Clockticks
+    DRAM Bound: N/A with HT on
+        DRAM Bandwidth Bound: 0.0% of Elapsed Time
+    NUMA: % of Remote Accesses: 0.0%
+
+    Bandwidth Utilization
+    Bandwidth Domain             Platform Maximum  Observed Maximum  Average  % of Elapsed Time with High BW Utilization(%)
+    ---------------------------  ----------------  ----------------  -------  ---------------------------------------------
+    DRAM, GB/sec                 122                          9.000    4.767                                           0.0%
+    DRAM Single-Package, GB/sec  61                           8.900    4.632                                           0.0%
+Collection and Platform Info
+    Application Command Line: ./tasks.mtp "640" "480" "900" "hype5/640x480/tasks/900/20/1/output.png" 
+    Operating System: 6.1.0-28-amd64 12.12
+    Computer Name: hype5
+    Result Size: 63.9 MB 
+    Collection start time: 22:51:35 21/09/2025 UTC
+    Collection stop time: 22:51:44 21/09/2025 UTC
+    Collector Type: Driverless Perf per-process sampling
+    CPU
+        Name: Intel(R) Xeon(R) E5/E7 v3 Processor code named Haswell
+        Frequency: 2.295 GHz 
+        Logical CPU Count: 40
+        Max DRAM Single-Package Bandwidth: 61.000 GB/s
+
+If you want to skip descriptions of detected performance issues in the report,
+enter: vtune -report summary -report-knob show-issues=false -r <my_result_dir>.
+Alternatively, you may view the report in the csv format: vtune -report
+<report_name> -format=csv.

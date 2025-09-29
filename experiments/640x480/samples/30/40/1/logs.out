@@ -1,0 +1,63 @@
+Rendering a 640 x 480 image with 30 samples per pixel...
+
+Done rendering. Time: 5.478092 seconds.
+Saving image to render.png...
+Image saved successfully.
+Elapsed Time: 5.583s
+    CPI Rate: 3.391
+     | The CPI may be too high. This could be caused by issues such as memory
+     | stalls, instruction starvation, branch misprediction or long latency
+     | instructions. Explore the other hardware-related metrics to identify what
+     | is causing high CPI.
+     |
+    Average CPU Frequency: 2.595 GHz 
+    Total Thread Count: 40
+Effective Physical Core Utilization: 96.5% (19.308 out of 20)
+    Effective Logical Core Utilization: 96.4% (38.568 out of 40)
+Memory Bound: 43.8% of Pipeline Slots
+ | The metric value is high. This can indicate that the significant fraction of
+ | execution pipeline slots could be stalled due to demand memory load and
+ | stores. Use Memory Access analysis to have the metric breakdown by memory
+ | hierarchy, memory bandwidth information, correlation by memory objects.
+ |
+    Cache Bound: 33.0% of Clockticks
+     | A significant proportion of cycles are being spent on data fetches from
+     | caches. Check Memory Access analysis to see if accesses to L2 or L3
+     | caches are problematic and consider applying the same performance tuning
+     | as you would for a cache-missing workload. This may include reducing the
+     | data working set size, improving data access locality, blocking or
+     | partitioning the working set to fit in the lower cache levels, or
+     | exploiting hardware prefetchers. Consider using software prefetchers, but
+     | note that they can interfere with normal loads, increase latency, and
+     | increase pressure on the memory system. This metric includes coherence
+     | penalties for shared data. Check Microarchitecture Exploration analysis
+     | to see if contested accesses or data sharing are indicated as likely
+     | issues.
+     |
+    DRAM Bound: N/A with HT on
+        DRAM Bandwidth Bound: 0.0% of Elapsed Time
+    NUMA: % of Remote Accesses: 0.0%
+
+    Bandwidth Utilization
+    Bandwidth Domain             Platform Maximum  Observed Maximum  Average  % of Elapsed Time with High BW Utilization(%)
+    ---------------------------  ----------------  ----------------  -------  ---------------------------------------------
+    DRAM, GB/sec                 120                          2.700    2.912                                           0.0%
+    DRAM Single-Package, GB/sec  60                           2.500    1.941                                           0.0%
+Collection and Platform Info
+    Application Command Line: ./samples.mtp "640" "480" "30" "hype5/640x480/samples/30/40/1/output.png" 
+    Operating System: 6.1.0-28-amd64 12.12
+    Computer Name: hype5
+    Result Size: 37.4 MB 
+    Collection start time: 22:59:27 21/09/2025 UTC
+    Collection stop time: 22:59:32 21/09/2025 UTC
+    Collector Type: Driverless Perf per-process sampling
+    CPU
+        Name: Intel(R) Xeon(R) E5/E7 v3 Processor code named Haswell
+        Frequency: 2.295 GHz 
+        Logical CPU Count: 40
+        Max DRAM Single-Package Bandwidth: 60.000 GB/s
+
+If you want to skip descriptions of detected performance issues in the report,
+enter: vtune -report summary -report-knob show-issues=false -r <my_result_dir>.
+Alternatively, you may view the report in the csv format: vtune -report
+<report_name> -format=csv.
