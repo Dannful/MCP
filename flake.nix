@@ -22,6 +22,7 @@
             DoE_base
             FrF2
             tidyverse
+            janitor
           ];
         };
       in {

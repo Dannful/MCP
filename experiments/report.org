@@ -56,180 +56,286 @@ Finalmente, os experimentos foram executados na máquina *hype5* do PCAD, com um
 
 #+LATEX: \clearpage
 
+* Motivações
+
+Em primeira instância, foi testado o paralelismo ao nível da *imagem* (resolução), sendo este o mais imediatamente trivial e onde poderia estar o maior ganho potencial.
+Conforme será demonstrado posteriormente, o bônus de performance justificou-se, até mesmo para problemas pequenos.
+
+Em seguida, ponderou-se sobre se haveria algum ganho em paralelizar as *amostras*. A hipótese seguia que, conforme o número destas crescesse, um paralelismo em tal nível mostrar-se-ia
+valioso. Isso mostrou-se verdadeiro, conforme será explicitado a seguir.
+
+Finalmente, decidiu-se investigar o paralelismo com *tarefas*. Pensou-se que poderia haver algum ganho em caso de disparidade de carga de trabalho entre as /threads/.
+Entretanto, conforme será constatado, tal método assemelhou-se fortemente em desempenho ao paralelismo a nível de resolução.
+
 * Resultados
 
-Primeiramente, vamos utilizar a linguagem *R* para colocar todos os dados em uma tabela.
+Primeiramente, vamos colocar todos os dados em uma tabela.
 
-Em seguida, vamos visualizar alguns dos dados.
+Em seguida, vamos visualizar alguns.
 
 #+NAME: results_join
 #+begin_src R :results value table :exports results :colnames yes :session
-  library(tidyverse)
-  experiments <- read_csv(here::here("experiments.csv"))
+    library(tidyverse)
+    library(janitor)
 
-  read_row_data <- function(Resolution, Otimization, Samples, Threads, Blocks) {
-    dir_path <- here::here(paste0("experiments", "/", Resolution, "/", Otimization, "/", Samples, "/", Threads, "/", Blocks))
-    stdout_path <- paste0(dir_path, "/", "logs.out")
-    stdout_lines <- readLines(stdout_path)
-    render_line <- grep("Done rendering. Time:", stdout_lines, value = TRUE)
-    time_str <- str_extract(render_line, "^Done rendering\\. Time: ([0-9.]+) seconds\\.$", group = 1)
-    time_numeric <- as.numeric(time_str)
-    vtune_path = paste0(dir_path, "/", "vtune_reports.csv")
-    vtune_csv <- read_delim(vtune_path, delim = "\t", show_col_types = FALSE)
+    experiments <- read_csv(here::here("experiments.csv"))
 
-    vtune_csv |>
-      select(`Metric Name`, `Metric Value`) |>
-      filter(`Metric Name` %in% c("CPI Rate", "Average CPU Frequency", "Effective Physical Core Utilization", "Effective Logical Core Utilization", "Elapsed Time")) |>
-      mutate(`Metric Name` = recode(`Metric Name`,
-        "CPI Rate" = "CPI",
-        "Average CPU Frequency" = "CPU",
-        "Effective Physical Core Utilization" = "PC",
-        "Effective Logical Core Utilization" = "LC",
-        "Elapsed Time" = "Total time"
-      )) |>
-      mutate(`Metric Value` = case_when(
-        `Metric Name` == "CPU" ~ round(as.numeric(`Metric Value`) / 1e9, digits = 3),
-        `Metric Name` %in% c("PC", "LC") ~ as.numeric(str_extract(`Metric Value`, "^([^%])+%", group = 1)) / 100,
-        TRUE ~ as.numeric(`Metric Value`)
-      )) |>
-      rename(`Metric` = "Metric Name") |>
-      rename(`Value` = "Metric Value") |>
-      add_row(`Metric` = "Calc. time", `Value` = round(time_numeric, digits = 3))
-  }
+    read_row_data <- function(Resolution, Otimization, Samples, Threads, Blocks) {
+      dir_path <- here::here(paste0("experiments", "/", Resolution, "/", Otimization, "/", Samples, "/", Threads, "/", Blocks))
+      stdout_path <- paste0(dir_path, "/", "logs.out")
+      stdout_lines <- readLines(stdout_path)
+      render_line <- grep("Done rendering. Time:", stdout_lines, value = TRUE)
+      time_str <- str_extract(render_line, "^Done rendering\\. Time: ([0-9.]+) seconds\\.$", group = 1)
+      time_numeric <- as.numeric(time_str)
+      vtune_path = paste0(dir_path, "/", "vtune_reports.csv")
+      vtune_csv <- read_delim(vtune_path, delim = "\t", show_col_types = FALSE)
 
-  results <- experiments |>
-                  mutate(`Blocks` = substring(Blocks, 3)) %>%
-  		mutate(results = pmap(., read_row_data)) |>
-  		unnest(results)
-  results |>
-    select(-`Blocks`) |>
-    slice_head(n = 15)
+      vtune_csv |>
+        select(`Metric Name`, `Metric Value`) |>
+        filter(`Metric Name` %in% c("CPI Rate", "Average CPU Frequency", "Effective Physical Core Utilization", "Effective Logical Core Utilization", "Elapsed Time")) |>
+        mutate(`Metric Name` = recode(`Metric Name`,
+          "CPI Rate" = "CPI",
+          "Average CPU Frequency" = "CPU",
+          "Effective Physical Core Utilization" = "PC",
+          "Effective Logical Core Utilization" = "LC",
+          "Elapsed Time" = "Total time"
+        )) |>
+        mutate(`Metric Value` = case_when(
+          `Metric Name` == "CPU" ~ round(as.numeric(`Metric Value`) / 1e9, digits = 3),
+          `Metric Name` %in% c("PC", "LC") ~ as.numeric(str_extract(`Metric Value`, "^([^%]+)%", group = 1)) / 100,
+          TRUE ~ as.numeric(`Metric Value`)
+        )) |>
+        rename(`Metric` = "Metric Name") |>
+        rename(`Value` = "Metric Value") |>
+        add_row(`Metric` = "Calc. time", `Value` = round(time_numeric, digits = 3))
+    }
+
+    results <- experiments |>
+                    mutate(`Blocks` = substring(Blocks, 3)) %>%
+    		mutate(results = pmap(., read_row_data)) |>
+    		unnest(results) |>
+                    clean_names() |>
+                    rename(optimization = "otimization")
+
+    results |>
+      select(-`blocks`) |>
+      slice_head(n = 15) |>
+      rename(Resolution = resolution, Optimization = optimization, Threads = threads,
+             Samples = samples, Metric = metric, Value = value)
 #+end_src
-
 
 #+ATTR_LATEX: :environment tabularx :booktabs t :width \textwidth
 #+RESULTS: results_join
-| Resolution | Otimization | Samples | Threads | Metric     |     Value |
-|------------+-------------+---------+---------+------------+-----------|
-|  3840x2160 | collapse    |      30 |      20 | Total time | 10.947427 |
-|  3840x2160 | collapse    |      30 |      20 | CPI        |  0.512917 |
-|  3840x2160 | collapse    |      30 |      20 | CPU        |     2.656 |
-|  3840x2160 | collapse    |      30 |      20 | PC         |      0.07 |
-|  3840x2160 | collapse    |      30 |      20 | LC         |      0.05 |
-|  3840x2160 | collapse    |      30 |      20 | Calc. time |     8.303 |
-|  3840x2160 | samples     |      30 |       1 | Total time | 85.500342 |
-|  3840x2160 | samples     |      30 |       1 | CPI        |  0.500227 |
-|  3840x2160 | samples     |      30 |       1 | CPU        |     2.987 |
-|  3840x2160 | samples     |      30 |       1 | PC         |         0 |
-|  3840x2160 | samples     |      30 |       1 | LC         |      0.05 |
-|  3840x2160 | samples     |      30 |       1 | Calc. time |    82.642 |
-|    640x480 | collapse    |      30 |       1 | Total time |  3.002269 |
-|    640x480 | collapse    |      30 |       1 | CPI        |  0.479128 |
-|    640x480 | collapse    |      30 |       1 | CPU        |     2.986 |
+| Resolution | Optimization | Samples | Threads | Metric     |     Value |
+|------------+--------------+---------+---------+------------+-----------|
+|  3840x2160 | collapse     |      30 |      20 | Total time | 10.947427 |
+|  3840x2160 | collapse     |      30 |      20 | CPI        |  0.512917 |
+|  3840x2160 | collapse     |      30 |      20 | CPU        |     2.656 |
+|  3840x2160 | collapse     |      30 |      20 | PC         |     0.417 |
+|  3840x2160 | collapse     |      30 |      20 | LC         |     0.215 |
+|  3840x2160 | collapse     |      30 |      20 | Calc. time |     8.303 |
+|  3840x2160 | samples      |      30 |       1 | Total time | 85.500342 |
+|  3840x2160 | samples      |      30 |       1 | CPI        |  0.500227 |
+|  3840x2160 | samples      |      30 |       1 | CPU        |     2.987 |
+|  3840x2160 | samples      |      30 |       1 | PC         |      0.05 |
+|  3840x2160 | samples      |      30 |       1 | LC         |     0.025 |
+|  3840x2160 | samples      |      30 |       1 | Calc. time |    82.642 |
+|    640x480 | collapse     |      30 |       1 | Total time |  3.002269 |
+|    640x480 | collapse     |      30 |       1 | CPI        |  0.479128 |
+|    640x480 | collapse     |      30 |       1 | CPU        |     2.986 |
 
-Agora que possuímos os dados de todas as execuções, podemos computar algumas agregações.
-
+Agora que possuímos os dados de todas as execuções, podemos computar algumas agregações em função da resolução,
+fator determinante do conjunto de entrada.
 
 #+NAME: aggregations
 #+begin_src R :results value :exports results :session :colnames yes
-results |>
-    group_by(`Metric`) |>
-    summarise(`Mean` = round(mean(`Value`), digits = 3),
-	    `Standard deviation` = round(sd(`Value`), digits = 3),
-	    `Min` = round(min(`Value`), digits = 3),
-	    `Max` = round(max(`Value`), digits = 3))
+  results |>
+      group_by(resolution, metric) |>
+      summarise(Mean = round(mean(value), digits = 3),
+  	    `Standard deviation` = round(sd(value), digits = 3),
+  	    Min = round(min(value), digits = 3),
+  	    Max = round(max(value), digits = 3),
+              Median = round(median(value), digits = 3)) |>
+      rename(Metric = metric, Resolution = resolution)
 #+end_src
 
 #+RESULTS: aggregations
-| Metric     |    Mean | Standard deviation |   Min |      Max |
-|------------+---------+--------------------+-------+----------|
-| CPI        |   1.802 |              1.815 | 0.475 |    6.166 |
-| CPU        |   2.733 |              0.181 | 2.594 |    2.989 |
-| Calc. time | 310.435 |            661.401 | 0.274 | 2290.334 |
-| LC         |   0.045 |              0.023 |     0 |     0.09 |
-| PC         |   0.036 |              0.034 |     0 |     0.09 |
-| Total time | 311.889 |            662.048 | 0.384 | 2293.335 |
+| Resolution | Metric     |    Mean | Standard deviation |   Min |      Max |  Median |
+|------------+------------+---------+--------------------+-------+----------+---------|
+|  3840x2160 | CPI        |   1.825 |              1.864 | 0.475 |    6.166 |   0.663 |
+|  3840x2160 | CPU        |   2.733 |              0.182 | 2.594 |    2.989 |   2.607 |
+|  3840x2160 | Calc. time | 597.734 |             844.91 | 5.157 | 2290.334 | 147.786 |
+|  3840x2160 | LC         |   0.415 |              0.359 | 0.025 |     0.99 |   0.436 |
+|  3840x2160 | PC         |   0.573 |              0.412 | 0.049 |        1 |   0.649 |
+|  3840x2160 | Total time | 600.517 |             845.01 | 7.848 | 2293.335 | 150.722 |
+|    640x480 | CPI        |   1.779 |              1.782 | 0.478 |    6.017 |   0.669 |
+|    640x480 | CPU        |   2.732 |              0.181 | 2.594 |    2.989 |   2.609 |
+|    640x480 | Calc. time |  23.136 |             32.965 | 0.274 |   89.609 |   5.816 |
+|    640x480 | LC         |   0.397 |              0.352 | 0.024 |    0.988 |   0.359 |
+|    640x480 | PC         |   0.542 |              0.399 | 0.049 |    0.989 |   0.607 |
+|    640x480 | Total time |  23.261 |             32.965 | 0.384 |   89.745 |   5.973 |
 
-Em seguida, alguns gráficos.
+Podemos observar que as métricas relatadas pelo Vtune condizem com o ambiente em que o programa foi executado.
+
+Considerando que não foram impostas restrições de uso de CPU (frequência ou ciclos por instrução), é esperado que os valores equivalham em ambas as dimensões do problema.
+
+Outrossim, ao analisarmos o *LC* (utilização dos núcleos lógicos), observamos que o valor mínimo encontra-se no entorno de $0.025$ e o máximo em torno de $1$. Isso é coerente com
+o ambiente de execução, pois a máquina *hype5* dispõe de $40$ núcleos lógicos, levando a uma subutilização na versão sequencial do programa equivalente a $\frac{1}{40} = 0.025$ e à
+utilização maximal na versão paralela. O *PC* (utilização dos núcleos físicos), similarmente, possui um valor mínimo de $\approx 0.05$, o que equivale a $\frac{1}{20}$, sendo $20$
+a quantidade de núcleos físicos da máquina.
+
+Entretanto, como é de se esperar, o tempo de execução variou intrinsicamente entre as diferentes dimensões do problema, ambos exibindo alta variabilidade, denotada pelo desvião padrão supracitado.
+Isso condiz com as expectativas, pois a maior carga de trabalho terá tempo de execução máximo na versão sequencial, mas apresentará uma redução significativa em sua correspondente paralela, levando
+a um elevado desvio padrão.
 
 #+begin_src R :results value :exports none :session :colnames yes
   total_times <- results |>
-    filter(`Metric` == "Total time") |>
-    select(-`Metric`) |>
-    group_by(`Resolution`, `Otimization`, `Samples`, `Threads`) |>
-    summarise(`Value` = mean(`Value`))
+    filter(metric == "Total time") |>
+    select(-metric) |>
+    group_by(resolution, optimization, samples, threads) |>
+    summarise(value = mean(value))
 
   speed_ups <- total_times |>
-    group_by(`Resolution`, `Otimization`, `Samples`) |>
-    mutate(`Speedup` = `Value`[`Threads` == 1] / `Value`) |>
-    select(-`Value`) |>
-    filter(`Threads` > 1) |>
+    group_by(resolution, optimization, samples) |>
+    mutate(speedup = value[threads == 1] / value) |>
+    select(-value) |>
+    filter(threads > 1) |>
     ungroup()
 
   efficiencies <- speed_ups |>
-    mutate(`Efficiency` = `Speedup` / `Threads`) |>
-    select(-`Speedup`)
+    mutate(efficiency = speedup / threads) |>
+    select(-speedup)
 #+end_src
 
 #+RESULTS:
-| Resolution | Otimization | Samples | Threads |         Efficiency |
-|------------+-------------+---------+---------+--------------------|
-|  3840x2160 | collapse    |      30 |      20 |  0.361954632422185 |
-|  3840x2160 | collapse    |      30 |      40 |  0.245291631457323 |
-|  3840x2160 | collapse    |     900 |      20 |  0.475720810197091 |
-|  3840x2160 | collapse    |     900 |      40 |  0.376469926685016 |
-|  3840x2160 | samples     |      30 |      20 | 0.0423207524956456 |
-|  3840x2160 | samples     |      30 |      40 | 0.0140397195163273 |
-|  3840x2160 | samples     |     900 |      20 | 0.0747586925950843 |
-|  3840x2160 | samples     |     900 |      40 | 0.0550217388374816 |
-|  3840x2160 | tasks       |      30 |      20 | 0.0729530199572017 |
-|  3840x2160 | tasks       |      30 |      40 | 0.0231940685225103 |
-|  3840x2160 | tasks       |     900 |      20 |  0.482043378624323 |
-|  3840x2160 | tasks       |     900 |      40 |  0.362179113548891 |
-|    640x480 | collapse    |      30 |      20 |  0.283277801351709 |
-|    640x480 | collapse    |      30 |      40 |  0.154935353236374 |
-|    640x480 | collapse    |     900 |      20 |  0.466481365332397 |
-|    640x480 | collapse    |     900 |      40 |  0.362125356151744 |
-|    640x480 | samples     |      30 |      20 | 0.0458673572451764 |
-|    640x480 | samples     |      30 |      40 | 0.0141972089219249 |
-|    640x480 | samples     |     900 |      20 | 0.0798830003723476 |
-|    640x480 | samples     |     900 |      40 | 0.0590780487805307 |
-|    640x480 | tasks       |      30 |      20 | 0.0808556689083978 |
-|    640x480 | tasks       |      30 |      40 | 0.0219751744996768 |
-|    640x480 | tasks       |     900 |      20 |  0.487416516270381 |
-|    640x480 | tasks       |     900 |      40 |  0.366582253998126 |
+| resolution | optimization | samples | threads |         efficiency |
+|------------+--------------+---------+---------+--------------------|
+|  3840x2160 | collapse     |      30 |      20 |  0.361954632422185 |
+|  3840x2160 | collapse     |      30 |      40 |  0.245291631457323 |
+|  3840x2160 | collapse     |     900 |      20 |  0.475720810197091 |
+|  3840x2160 | collapse     |     900 |      40 |  0.376469926685016 |
+|  3840x2160 | samples      |      30 |      20 | 0.0423207524956456 |
+|  3840x2160 | samples      |      30 |      40 | 0.0140397195163273 |
+|  3840x2160 | samples      |     900 |      20 | 0.0747586925950843 |
+|  3840x2160 | samples      |     900 |      40 | 0.0550217388374816 |
+|  3840x2160 | tasks        |      30 |      20 | 0.0729530199572017 |
+|  3840x2160 | tasks        |      30 |      40 | 0.0231940685225103 |
+|  3840x2160 | tasks        |     900 |      20 |  0.482043378624323 |
+|  3840x2160 | tasks        |     900 |      40 |  0.362179113548891 |
+|    640x480 | collapse     |      30 |      20 |  0.283277801351709 |
+|    640x480 | collapse     |      30 |      40 |  0.154935353236374 |
+|    640x480 | collapse     |     900 |      20 |  0.466481365332397 |
+|    640x480 | collapse     |     900 |      40 |  0.362125356151744 |
+|    640x480 | samples      |      30 |      20 | 0.0458673572451764 |
+|    640x480 | samples      |      30 |      40 | 0.0141972089219249 |
+|    640x480 | samples      |     900 |      20 | 0.0798830003723476 |
+|    640x480 | samples      |     900 |      40 | 0.0590780487805307 |
+|    640x480 | tasks        |      30 |      20 | 0.0808556689083978 |
+|    640x480 | tasks        |      30 |      40 | 0.0219751744996768 |
+|    640x480 | tasks        |     900 |      20 |  0.487416516270381 |
+|    640x480 | tasks        |     900 |      40 |  0.366582253998126 |
+
+#+begin_src R :exports none :results none :session
+  labeller <- function(labels) {
+    tibble(optimization = paste0("Optimization: ", labels$optimization),
+           samples = paste0(labels$samples, " samples"),
+           resolution = labels$resolution)
+  }
+
+  generate_plot <- function(df, path) {
+    plot <- ggplot(df, aes(x = threads, y = value)) +
+  	    geom_point() +
+              geom_line() +
+  	    scale_x_continuous(breaks = c(1, 20, 40)) +
+  	    facet_wrap(resolution~optimization~samples, ncol = 2, labeller = labeller, scales = "free_y") +
+              labs(x = "Threads", y = "Total time (s)") +
+  	    theme_bw(base_size = 12) +
+  	    theme(
+  	      legend.title = element_blank(),
+  	      legend.spacing = unit(1, "mm"),
+  	      legend.position = "right",
+  	      legend.justification = "left",
+  	      legend.box.spacing = unit(0, "pt"),
+  	      legend.box.margin = margin(0, 0, 0, 0),
+  	      axis.text.x = element_text(angle=45, vjust=1, hjust=1)
+  	    )
+    ggsave(here::here(paste0("experiments/", path)), plot, height = 12)
+  }
+#+end_src
+
+#+NAME: time_small
+#+begin_src R :results graphics file :exports results :file small.pdf :session
+  generate_plot(total_times |> filter(resolution == "640x480"), "small.pdf")
+#+end_src
+
+#+ATTR_LATEX: :width 0.9\textwidth
+#+RESULTS: time_small
+[[file:small.pdf]]
+
+Para a resolução de $640 \times 480$, observamos que as otimizações ~collapse~ e ~tasks~ apresentam uma redução de tempo de execução expressiva
+com o aumento do número de /threads/, especialmente para $900$ amostras, onde o tempo cai de $90$ para menos de $5$ com $20$ /threads/.
+A otimização ~samples~, por outro lado, mostra-se ineficiente: para $30$ amostras, o tempo chega a aumentar ao passar de $1$ para $20$ /threads/,
+e, para $900$ amostras, a redução é muito tênue. Isso sugere que o /overhead/ da paralelização por amostras é significativo para esta carga de trabalho.
+
+#+NAME: time_big
+#+begin_src R :results graphics file :exports results :file big.pdf :session
+  generate_plot(total_times |> filter(resolution == "3840x2160"), "big.pdf")
+#+end_src
+
+#+ATTR_LATEX: :width 0.9\textwidth
+#+RESULTS: time_big
+[[file:big.pdf]]
+
+Com a resolução maior, de $3840 \times 2160$, os padrões se repetem, mas de forma muito mais acentuada devido à carga de trabalho maior.
+As otimizações ~collapse~ e ~tasks~ escalam de forma significativa, reduzindo o tempo de execução de mais de $2000$ segundos (na versão sequencial com $900$ amostras)
+para cerca de $100$ segundos com $40$ threads. A otimização ~samples~ continua a apresentar um desempenho fraco no primeiro caso, embora haja um ganho considerável no segundo,
+devido à maior quantidade de amostras.
 
 #+NAME: speedup
 #+begin_src R :results graphics file :exports results :session :file speedup.pdf
   library(ggplot2)
 
-  speed_ups$Samples <- as.factor(speed_ups$Samples)
+  speed_ups$samples <- as.factor(speed_ups$samples)
 
-  plot <- ggplot(speed_ups, aes(x = `Threads`, y = `Speedup`, color = `Resolution`, linetype = `Samples`)) +
+  plot <- ggplot(speed_ups, aes(x = threads, y = speedup, color = resolution, linetype = samples)) +
     geom_line() +
     geom_point() +
-    facet_wrap(~ `Otimization`, labeller = as_labeller(str_to_title), scales = "free_y") +
+    scale_x_continuous(breaks = c(20, 40)) +
+    labs(x = "Threads", y = "Speedup (x)", color = "Resolution", linetype = "Samples") +
+    facet_wrap(~ optimization, ncol = 1, labeller = as_labeller(str_to_title), scales = "free_y") +
     theme_bw()
-  ggsave(here::here("experiments/speedup.pdf"), plot = plot)
+  ggsave(here::here("experiments/speedup.pdf"), plot, height = 12)
 #+end_src
 
 #+RESULTS: speedup
 [[file:speedup.pdf]]
 
+O gráfico de /speedup/ ilustra a aceleração obtida com o paralelismo. Fica evidente que as otimizações ~collapse~ e ~tasks~ são as mais eficazes,
+alcançando um /speedup/ de até $15 \times$ com $40$ /threads/ nos cenários de maior carga ($900$ amostras). O /speedup/ é maior para a resolução de $3840 \times 2160$ e com mais amostras,
+o que é esperado, pois há mais trabalho a ser distribuído. A otimização ~samples~ apresenta um /speedup/ muito baixo, inferior a $2 \times$ em todos os casos,
+o que a torna uma abordagem inviável para este problema.
+
 #+NAME: efficiency
 #+begin_src R :results graphics file :exports results :session :file efficiency.pdf
   library(ggplot2)
 
-  efficiencies$Samples <- as.factor(efficiencies$Samples)
+  efficiencies$samples <- as.factor(efficiencies$samples)
 
-  plot <- ggplot(efficiencies, aes(x = `Threads`, y = `Efficiency`, color = `Resolution`, linetype = `Samples`)) +
+  plot <- ggplot(efficiencies, aes(x = threads, y = efficiency, color = resolution, linetype = samples)) +
     geom_line() +
     geom_point() +
-    facet_wrap(~ `Otimization`, labeller = as_labeller(str_to_title), scales = "free_y") +
+    scale_x_continuous(breaks = c(20, 40)) +
+    labs(x = "Threads", y = "Efficiency", color = "Resolution", linetype = "Samples") +
+    facet_wrap(~ optimization, ncol = 1, labeller = as_labeller(str_to_title), scales = "free_y") +
     theme_bw()
-  ggsave(here::here("experiments/efficiency.pdf"), plot = plot)
+  ggsave(here::here("experiments/efficiency.pdf"), plot, height = 12)
 #+end_src
 
 #+RESULTS: efficiency
 [[file:efficiency.pdf]]
+
+Analisando a eficiência, que mede o quão bem os recursos de processamento são aproveitados, vemos que para as otimizações ~collapse~ e ~tasks~,
+a eficiência com $20$ /threads/ fica em torno de $45$ - $50\%$ nos casos de maior carga. Ao usar $40$ /threads/, a eficiência cai para aproximadamente
+$35$ - $40\%$. Especula-se que tal queda se dá ao fato de a porção sequencial do código passar a ter mais significância em comparação aos custos de trocas de contexto.
+Finalmente, a eficiência da otimização ~samples~ é residual, confirmando as análises anteriores.
 
