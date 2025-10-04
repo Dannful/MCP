@@ -1,0 +1,161 @@
+#+TITLE: Programação distribuída e paralela - Trabalho OpenMP
+#+AUTHOR: Leonardo Heisler, Thiago dos Santos Gonçalves e Vinícius Daniel
+#+DATE: \today
+#+OPTIONS: toc:nil
+#+LATEX_CLASS: beamer
+#+LATEX_CLASS_OPTIONS: [presentation]
+#+BEAMER_THEME: Madrid
+#+LATEX_HEADER: \hypersetup{colorlinks=true, linkcolor=blue, urlcolor=blue}
+#+LATEX_HEADER: \usepackage{color}
+#+LATEX_HEADER: \usepackage{minted}
+#+LATEX_HEADER: \usepackage{graphicx}
+#+LATEX_HEADER: \usepackage{indentfirst}
+#+LATEX_HEADER: \usepackage{float}
+#+LATEX_HEADER: \usepackage{booktabs}
+#+LATEX_HEADER: \setminted{frame=single,linenos=true,breaklines=true}
+
+* Frame
+\maketitle
+
+* Motivações
+
+**Objetivo**: Avaliar o desempenho de diferentes estratégias de paralelização OpenMP em um renderizador de /ray tracing/.
+
+*** Fatores do experimento
+    - *Resolução*: $3840 \times 2160$ e $640 \times 480$.
+    - *Otimização*:
+      - ~collapse~: Paralelismo a nível da imagem.
+      - ~samples~: Paralelismo a nível das amostras.
+      - ~tasks~: Paralelismo com tarefas OpenMP.
+    - *Número de /samples/*: 30 e 900.
+    - *Quantidade de /threads/*: 1, 20 e 40.
+
+* Coleta de Dados
+
+O código a seguir é responsável por ler os arquivos de resultado, extrair as métricas de tempo, Vtune e processá-las para análise.
+
+#+NAME: results_join
+#+begin_src R :results none :exports none :session
+    library(tidyverse)
+    library(janitor)
+
+    experiments <- read_csv(here::here("experiments.csv"))
+
+    read_row_data <- function(Resolution, Otimization, Samples, Threads, Blocks) {
+      dir_path <- here::here(paste0("experiments", "/", Resolution, "/", Otimization, "/", Samples, "/", Threads, "/", Blocks))
+      stdout_path <- paste0(dir_path, "/", "logs.out")
+      stdout_lines <- readLines(stdout_path)
+      render_line <- grep("Done rendering. Time:", stdout_lines, value = TRUE)
+      time_str <- str_extract(render_line, "^Done rendering\. Time: ([0-9.]+) seconds\.$", group = 1)
+      time_numeric <- as.numeric(time_str)
+      vtune_path = paste0(dir_path, "/", "vtune_reports.csv")
+      vtune_csv <- read_delim(vtune_path, delim = "\t", show_col_types = FALSE)
+
+      vtune_csv |
+        select(`Metric Name`, `Metric Value`) |
+        filter(`Metric Name` %in% c("CPI Rate", "Average CPU Frequency", "Effective Physical Core Utilization", "Effective Logical Core Utilization", "Elapsed Time")) |
+        mutate(`Metric Name` = recode (`Metric Name`,
+          "CPI Rate" = "CPI",
+          "Average CPU Frequency" = "CPU",
+          "Effective Physical Core Utilization" = "PC",
+          "Effective Logical Core Utilization" = "LC",
+          "Elapsed Time" = "Total time")
+        ) |
+        mutate(`Metric Value` = case_when(
+          `Metric Name` == "CPU" ~ round(as.numeric(`Metric Value`) / 1e9, digits = 3),
+          `Metric Name` %in% c("PC", "LC") ~ as.numeric(str_extract(`Metric Value`, "^([^%]+)%", group = 1)) / 100,
+          TRUE ~ as.numeric(`Metric Value`)
+        )) |
+        rename(`Metric` = "Metric Name") |
+        rename(`Value` = "Metric Value") |
+        add_row(`Metric` = "Calc. time", `Value` = round(time_numeric, digits = 3))
+    }
+
+    results <- experiments |
+                    mutate(`Blocks` = substring(Blocks, 3)) %>%
+    		mutate(results = pmap(., read_row_data)) %>%
+    		unnest(results) %>%
+                    clean_names() %>%
+                    rename(optimization = "otimization")
+#+end_src
+
+#+begin_src R :results none :exports none :session
+  total_times <- results |
+    filter(metric == "Total time") %>%
+    select(-metric) %>%
+    group_by(resolution, optimization, samples, threads) %>%
+    summarise(value = mean(value))
+
+  speed_ups <- total_times %>%
+    group_by(resolution, optimization, samples) %>%
+    mutate(speedup = value[threads == 1] / value) %>%
+    select(-value) %>%
+    filter(threads > 1) %>%
+    ungroup()
+
+  efficiencies <- speed_ups %>%
+    mutate(efficiency = speedup / threads) %>%
+    select(-speedup)
+#+end_src
+
+* Speedup
+
+#+NAME: speedup
+#+begin_src R :results graphics file :exports results :session :file speedup.pdf
+  library(ggplot2)
+
+  speed_ups$samples <- as.factor(speed_ups$samples)
+
+  plot <- ggplot(speed_ups, aes(x = threads, y = speedup, color = resolution, linetype = samples)) +
+    geom_line() +
+    geom_point() +
+    scale_x_continuous(breaks = c(20, 40)) +
+    labs(x = "Threads", y = "Speedup (x)", color = "Resolution", linetype = "Samples") +
+    facet_wrap(~ optimization, ncol = 3, labeller = as_labeller(str_to_title)) +
+    theme_bw()
+  ggsave(here::here("experiments/speedup.pdf"), plot, width = 12, height = 4)
+#+end_src
+
+#+ATTR_LATEX: :width 0.95\textwidth
+#+RESULTS: speedup
+[[file:speedup.pdf]]
+
+*** Análise do Speedup
+    - As otimizações ~collapse~ e ~tasks~ são as mais eficazes, com /speedup/ de até 15x.
+    - O /speedup/ é maior para a resolução $3840 \times 2160$ e com 900 amostras (maior carga de trabalho).
+    - A otimização ~samples~ apresenta um /speedup/ muito baixo (< 2x), mostrando-se inviável.
+
+* Eficiência
+
+#+NAME: efficiency
+#+begin_src R :results graphics file :exports results :session :file efficiency.pdf
+  library(ggplot2)
+
+  efficiencies$samples <- as.factor(efficiencies$samples)
+
+  plot <- ggplot(efficiencies, aes(x = threads, y = efficiency, color = resolution, linetype = samples)) +
+    geom_line() +
+    geom_point() +
+    scale_x_continuous(breaks = c(20, 40)) +
+    labs(x = "Threads", y = "Efficiency", color = "Resolution", linetype = "Samples") +
+    facet_wrap(~ optimization, ncol = 3, labeller = as_labeller(str_to_title)) +
+    theme_bw()
+  ggsave(here::here("experiments/efficiency.pdf"), plot, width = 12, height = 4)
+#+end_src
+
+#+ATTR_LATEX: :width 0.95\textwidth
+#+RESULTS: efficiency
+[[file:efficiency.pdf]]
+
+*** Análise da Eficiência
+    - Para ~collapse~ e ~tasks~, a eficiência com 20 /threads/ fica em torno de 45-50%.
+    - Com 40 /threads/, a eficiência cai para 35-40%, possivelmente devido à porção sequencial do código (Lei de Amdahl).
+    - A eficiência da otimização ~samples~ é residual, confirmando sua ineficácia.
+
+* Conclusões
+
+*** Principais Resultados
+    - *Melhores Estratégias*: Paralelismo a nível de imagem (~collapse~) e com tarefas (~tasks~) apresentaram desempenho similar e foram as mais eficientes.
+    - *Pior Estratégia*: Paralelismo a nível de amostra (~samples~) foi ineficiente, provavelmente devido ao alto /overhead/ para granularidade fina.
+    - *Escalabilidade*: O desempenho escala bem com o aumento da carga de trabalho (resolução e número de amostras), onde a paralelização se torna mais vantajosa.
+    - *Limitações*: A eficiência não é perfeita e diminui com mais /threads/, indicando a presença de gargalos sequenciais ou sobrecarga de sincronização.
