@@ -1,10 +1,9 @@
-all:
-	echo "Please specify a target (dimensions, samples or trace)
+# Makefile for MPI Matrix Multiplication
 
-%.mtp: %.c
-	gcc $< -o $@ -lm -fopenmp
+all: #mpi_coletiva mpi_p2p_bloqueante mpi_p2p_naobloqueante
+	mpicc mpi_coletiva.c -o mpi_coletiva
+	mpicc mpi_p2p_bloqueante.c -o mpi_p2p_bloqueante
+	mpicc mpi_p2p_naobloqueante.c -o mpi_p2p_naobloqueante
 
 clean:
-	rm -f *.mtp
-
-.PHONY: all clean
+	rm mpi_coletiva mpi_p2p_bloqueante mpi_p2p_naobloqueante
