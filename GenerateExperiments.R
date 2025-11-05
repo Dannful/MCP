@@ -10,6 +10,6 @@ generate_experiment <- function(factors, seed, path) {
 }
 
 seed <- 0
-factors <- list(Type = c("Collective", "Blocking", "Non-blocking"), n = c(10, 1000,
-    1e+06, 1e+09, 1e+12, 1e+15), Tasks = c(1, 2, 3, 4))
+factors <- list(Type = c("mpi_coletiva", "mpi_p2p_bloqueante", "mpi_p2p_naobloqueante"),
+    n = c(10, 1000, 1e+06, 1e+09, 1e+12, 1e+15), Tasks = c(4, 16, 32, 64, 80))
 generate_experiment(factors, seed, "./experiments.csv")
