@@ -12,25 +12,65 @@ void initialize_matrices(int n, double *A, double *B, double *C) {
 }
 
 int main(int argc, char *argv[]) {
+  if (argc != 4) {
+    fprintf(stderr, "Usage: %s <size> <num_tasks> <replication_index>\n",
+            argv[0]);
+    return 1;
+  }
   int rank, size, n = atoi(argv[1]);
-  printf("event,seconds\n");
-  {
-    double t1 = MPI_Wtime();
-    MPI_Init(&argc, &argv);
-    double t2 = MPI_Wtime();
-    printf("MPI_Init,%lf\n", t2 - t1);
+  char *num_tasks = argv[2];
+  char *replication_index = argv[3];
+  char *type = "mpi_p2p_bloqueante";
+
+  double init_time, rank_time;
+  double temp_t1, temp_t2;
+
+  temp_t1 = MPI_Wtime();
+  MPI_Init(&argc, &argv);
+  temp_t2 = MPI_Wtime();
+  init_time = temp_t2 - temp_t1;
+
+  temp_t1 = MPI_Wtime();
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  temp_t2 = MPI_Wtime();
+  rank_time = temp_t2 - temp_t1;
+
+  char dir_path[256];
+  sprintf(dir_path, "results/%s/%s/%s/%s", type, argv[1], num_tasks,
+          replication_index);
+
+  if (rank == 0) {
+    char command[300];
+    sprintf(command, "mkdir -p %s", dir_path);
+    if (system(command) != 0) {
+      fprintf(stderr, "Error creating directory %s\n", dir_path);
+      MPI_Abort(MPI_COMM_WORLD, 1);
+    }
   }
-  {
-    double t1 = MPI_Wtime();
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-    double t2 = MPI_Wtime();
-    printf("MPI_Comm_rank,%lf\n", t2 - t1);
+  MPI_Barrier(MPI_COMM_WORLD);
+
+  char filename[300];
+  sprintf(filename, "%s/%d.out", dir_path, rank);
+
+  printf("type=%s, rank=%d, size=%s, num_tasks=%s, replication_index=%s, "
+         "output_file=%s\n",
+         type, rank, argv[1], num_tasks, replication_index, filename);
+
+  FILE *fp = fopen(filename, "w");
+  if (fp == NULL) {
+    fprintf(stderr, "Error opening file for rank %d at %s\n", rank, filename);
+    MPI_Abort(MPI_COMM_WORLD, 1);
   }
+
+  fprintf(fp, "event,seconds\n");
+  fprintf(fp, "MPI_Init,%lf\n", init_time);
+  fprintf(fp, "MPI_Comm_rank,%lf\n", rank_time);
+
   {
     double t1 = MPI_Wtime();
     MPI_Comm_size(MPI_COMM_WORLD, &size);
     double t2 = MPI_Wtime();
-    printf("MPI_Comm_size,%lf\n", t2 - t1);
+    fprintf(fp, "MPI_Comm_size,%lf\n", t2 - t1);
   }
 
   double *A, *B, *C;
@@ -55,7 +95,7 @@ int main(int argc, char *argv[]) {
       MPI_Send(A + i * (n * n / size), n * n / size, MPI_DOUBLE, i, 0,
                MPI_COMM_WORLD);
       double t2 = MPI_Wtime();
-      printf("MPI_Send,%lf\n", t2 - t1);
+      fprintf(fp, "MPI_Send,%lf\n", t2 - t1);
     }
     for (int i = 0; i < n * n / size; i++) {
       local_A[i] = A[i];
@@ -65,14 +105,14 @@ int main(int argc, char *argv[]) {
     MPI_Recv(local_A, n * n / size, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD,
              MPI_STATUS_IGNORE);
     double t2 = MPI_Wtime();
-    printf("MPI_Recv,%lf\n", t2 - t1);
+    fprintf(fp, "MPI_Recv,%lf\n", t2 - t1);
   }
 
   {
     double t1 = MPI_Wtime();
     MPI_Bcast(B, n * n, MPI_DOUBLE, 0, MPI_COMM_WORLD);
     double t2 = MPI_Wtime();
-    printf("MPI_Bcast,%lf\n", t2 - t1);
+    fprintf(fp, "MPI_Bcast,%lf\n", t2 - t1);
   }
 
   for (int i = 0; i < n / size; i++) {
@@ -93,27 +133,27 @@ int main(int argc, char *argv[]) {
       MPI_Recv(C + i * (n * n / size), n * n / size, MPI_DOUBLE, i, 1,
                MPI_COMM_WORLD, MPI_STATUS_IGNORE);
       double t2 = MPI_Wtime();
-      printf("MPI_Recv,%lf\n", t2 - t1);
+      fprintf(fp, "MPI_Recv,%lf\n", t2 - t1);
     }
   } else {
     double t1 = MPI_Wtime();
     MPI_Send(local_C, n * n / size, MPI_DOUBLE, 0, 1, MPI_COMM_WORLD);
     double t2 = MPI_Wtime();
-    printf("MPI_Send,%lf\n", t2 - t1);
+    fprintf(fp, "MPI_Send,%lf\n", t2 - t1);
   }
 
   if (rank == 0) {
     t2 = MPI_Wtime();
-    printf("ELAPSED_TIME,%lf\n", t2 - t1);
+    fprintf(fp, "ELAPSED_TIME,%lf\n", t2 - t1);
   }
 
   /*    if (rank == 0) {
-          printf("Result Matrix:\n");
+          fprintf(fp, "Result Matrix:\n");
           for (int i = 0; i < n; i++) {
               for (int j = 0; j < n; j++) {
-                  printf("%f ", C[i * n + j]);
+                  fprintf(fp, "%f ", C[i * n + j]);
               }
-              printf("\n");
+              fprintf(fp, "\n");
           }
       }
   */
@@ -127,7 +167,8 @@ int main(int argc, char *argv[]) {
     double t1 = MPI_Wtime();
     MPI_Finalize();
     double t2 = MPI_Wtime();
-    printf("MPI_Finalize,%lf\n", t2 - t1);
+    fprintf(fp, "MPI_Finalize,%lf\n", t2 - t1);
   }
+  fclose(fp);
   return 0;
 }

@@ -15,26 +15,25 @@ for line in "${csv_lines[@]}"; do
   [[ -z "$line" ]] && continue # skip empty
 
   IFS=',' read -r type size tasks replication <<<"$line"
+  replication=${replication#.}
 
   echo "============================="
   echo "  Type: $type"
   echo "  Size: $size"
   echo "  Tasks: $tasks"
   echo "  Replication: $replication"
-  path=$(hostname)/$type/$tasks
-  mkdir -p $path
   nodes=$(($tasks / 4))
   machine_file="./nodes.slurm"
-  tee -a $machine_file <<EOF
-hype1=$nodes
-hype2=$nodes
-hype3=$nodes
-hype4=$nodes
-EOF
+  echo "hype1 slots=$nodes" >$machine_file
+  {
+    echo "hype2 slots=$nodes"
+    echo "hype3 slots=$nodes"
+    echo "hype5 slots=$nodes"
+  } >>$machine_file
   mpirun -np $tasks \
     -machinefile $machine_file \
     --mca btl ^openib \
     --mca btl_tcp_if_include eno2 \
     --bind-to none \
-    ./$type $size >$path/$blocks.out
+    ./$type $size $tasks $replication
 done
