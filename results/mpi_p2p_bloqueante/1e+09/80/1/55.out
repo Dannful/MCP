@@ -1,0 +1,8 @@
+event,seconds
+MPI_Init,1.925479
+MPI_Comm_rank,0.000005
+MPI_Comm_size,0.000002
+MPI_Recv,0.124305
+MPI_Bcast,0.069318
+MPI_Send,0.000124
+MPI_Finalize,2.126678
