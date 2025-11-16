@@ -35,5 +35,5 @@ for line in "${csv_lines[@]}"; do
     --mca btl ^openib \
     --mca btl_tcp_if_include eno2 \
     --bind-to none \
-    ./$type $size $tasks $replication
+    ./$type $size $replication
 done

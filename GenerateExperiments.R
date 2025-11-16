@@ -2,6 +2,7 @@ library(DoE.base)
 library(tidyverse)
 generate_experiment <- function(factors, seed, path) {
     replications <- 3
+    options(scipen = 999)
     DoE.base::fac.design(nfactors = length(factors), replications = replications,
         repeat.only = FALSE, blocks = 1, randomize = TRUE, seed = seed, nlevels = sapply(factors,
             length), factor.names = factors) |>

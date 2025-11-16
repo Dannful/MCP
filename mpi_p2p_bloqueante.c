@@ -3,8 +3,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-void initialize_matrices(int n, double *A, double *B, double *C) {
-  for (int i = 0; i < n * n; i++) {
+void initialize_matrices(long n, double *A, double *B, double *C) {
+  for (long i = 0; i < n * n; i++) {
     A[i] = i % 100;
     B[i] = (i % 100) + 1;
     C[i] = 0.0;
@@ -12,15 +12,14 @@ void initialize_matrices(int n, double *A, double *B, double *C) {
 }
 
 int main(int argc, char *argv[]) {
-  if (argc != 4) {
-    fprintf(stderr, "Usage: %s <size> <num_tasks> <replication_index>\n",
-            argv[0]);
+  if (argc != 3) {
+    fprintf(stderr, "Usage: %s <size> <replication_index>\n", argv[0]);
     return 1;
   }
-  int rank, size, n = atoi(argv[1]);
-  char *num_tasks = argv[2];
-  char *replication_index = argv[3];
-  char *type = "mpi_p2p_bloqueante";
+  int rank, size;
+  long n = atol(argv[1]);
+  char *replication_index = argv[2];
+  char *type = argv[0];
 
   double init_time, rank_time;
   double temp_t1, temp_t2;
@@ -35,8 +34,12 @@ int main(int argc, char *argv[]) {
   temp_t2 = MPI_Wtime();
   rank_time = temp_t2 - temp_t1;
 
+  double t1_size = MPI_Wtime();
+  MPI_Comm_size(MPI_COMM_WORLD, &size);
+  double t2_size = MPI_Wtime();
+
   char dir_path[256];
-  sprintf(dir_path, "results/%s/%s/%s/%s", type, argv[1], num_tasks,
+  sprintf(dir_path, "results/%s/%s/%d/%s", type, argv[1], size,
           replication_index);
 
   if (rank == 0) {
@@ -52,9 +55,9 @@ int main(int argc, char *argv[]) {
   char filename[300];
   sprintf(filename, "%s/%d.out", dir_path, rank);
 
-  printf("type=%s, rank=%d, size=%s, num_tasks=%s, replication_index=%s, "
+  printf("type=%s, rank=%d, n=%ld, comm_size=%d, replication_index=%s, "
          "output_file=%s\n",
-         type, rank, argv[1], num_tasks, replication_index, filename);
+         type, rank, n, size, replication_index, filename);
 
   FILE *fp = fopen(filename, "w");
   if (fp == NULL) {
@@ -65,13 +68,7 @@ int main(int argc, char *argv[]) {
   fprintf(fp, "event,seconds\n");
   fprintf(fp, "MPI_Init,%lf\n", init_time);
   fprintf(fp, "MPI_Comm_rank,%lf\n", rank_time);
-
-  {
-    double t1 = MPI_Wtime();
-    MPI_Comm_size(MPI_COMM_WORLD, &size);
-    double t2 = MPI_Wtime();
-    fprintf(fp, "MPI_Comm_size,%lf\n", t2 - t1);
-  }
+  fprintf(fp, "MPI_Comm_size,%lf\n", t2_size - t1_size);
 
   double *A, *B, *C;
   A = (double *)malloc(n * n * sizeof(double));
@@ -115,10 +112,10 @@ int main(int argc, char *argv[]) {
     fprintf(fp, "MPI_Bcast,%lf\n", t2 - t1);
   }
 
-  for (int i = 0; i < n / size; i++) {
-    for (int j = 0; j < n; j++) {
+  for (long i = 0; i < n / size; i++) {
+    for (long j = 0; j < n; j++) {
       local_C[i * n + j] = 0.0;
-      for (int k = 0; k < n; k++) {
+      for (long k = 0; k < n; k++) {
         local_C[i * n + j] += local_A[i * n + k] * B[k * n + j];
       }
     }
