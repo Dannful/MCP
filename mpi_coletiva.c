@@ -72,15 +72,35 @@ int main(int argc, char *argv[]) {
 
   double *A, *B, *C;
   A = (double *)malloc(n * n * sizeof(double));
+  if (A == NULL) {
+    fprintf(stderr, "Error allocating memory for matrix A (size %ldx%ld)\n", n, n);
+    MPI_Abort(MPI_COMM_WORLD, 1);
+  }
   B = (double *)malloc(n * n * sizeof(double));
+  if (B == NULL) {
+    fprintf(stderr, "Error allocating memory for matrix B (size %ldx%ld)\n", n, n);
+    MPI_Abort(MPI_COMM_WORLD, 1);
+  }
   C = (double *)malloc(n * n * sizeof(double));
+  if (C == NULL) {
+    fprintf(stderr, "Error allocating memory for matrix C (size %ldx%ld)\n", n, n);
+    MPI_Abort(MPI_COMM_WORLD, 1);
+  }
 
   if (rank == 0) {
     initialize_matrices(n, A, B, C);
   }
 
   double *local_A = (double *)malloc((n * n / size) * sizeof(double));
+  if (local_A == NULL) {
+    fprintf(stderr, "Error allocating memory for local_A (size %ldx%ld/size)\n", n, n);
+    MPI_Abort(MPI_COMM_WORLD, 1);
+  }
   double *local_C = (double *)malloc((n * n / size) * sizeof(double));
+  if (local_C == NULL) {
+    fprintf(stderr, "Error allocating memory for local_C (size %ldx%ld/size)\n", n, n);
+    MPI_Abort(MPI_COMM_WORLD, 1);
+  }
 
   double t1, t2;
   if (rank == 0)
