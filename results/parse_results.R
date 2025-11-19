@@ -24,7 +24,7 @@ for (file_path in file_paths) {
   size <- path_parts[start_index + 1]
   num_tasks <- path_parts[start_index + 2]
   replication_index <- path_parts[start_index + 3]
-  
+
   worker_number_with_ext <- path_parts[start_index + 4]
   worker_number <- str_remove(worker_number_with_ext, "\\.out$")
 
@@ -32,12 +32,12 @@ for (file_path in file_paths) {
 
   df <- df |>
     mutate(
-      program_type = program_type,
+      program_type = as.factor(program_type),
       size = as.numeric(size), # Convert to numeric if appropriate
       num_tasks = as.numeric(num_tasks), # Convert to numeric if appropriate
       replication_index = as.numeric(replication_index), # Convert to numeric
-      worker_number = as.numeric(worker_number) # Convert to numeric
-    ) %>%
+      worker_number = as.numeric(worker_number), # Convert to numeric
+    ) |>
     rename(elapsed_seconds = seconds) # Rename seconds column
 
   all_data[[length(all_data) + 1]] <- df
@@ -50,10 +50,19 @@ dataset <- dataset |>
   group_by(event, program_type, size, num_tasks, worker_number) |>
   summarise(elapsed_seconds = mean(elapsed_seconds))
 
-dataset |> filter(event == "ELAPSED_TIME") |> select(worker_number) |> distinct()
+# Take the mean of the workers
+dataset <- dataset |>
+  group_by(event, program_type, size, num_tasks) |>
+  summarise(elapsed_seconds = mean(elapsed_seconds))
 
-ggplot(data = dataset |> filter(event == "ELAPSED_TIME"), mapping = aes(x = num_tasks, y = elapsed_seconds, color = program_type)) +
-  geom_line() +
-  facet_wrap(size ~ worker_number) +
-  theme_minimal() -> plot
-ggsave("./chart.pdf", plot = plot)
+generate_plot <- function(df, path) {
+  ggplot(data = df, mapping = aes(x = num_tasks, y = elapsed_seconds, color = program_type)) +
+    geom_line() +
+    facet_wrap(~size ~ event) +
+    theme_minimal() -> plot
+  ggsave(path, plot = plot)
+}
+
+generate_plot(dataset |> filter(size == 10), "./10.pdf")
+generate_plot(dataset |> filter(size == 1000), "./1000.pdf")
+generate_plot(dataset |> filter(size == 10000), "./10000.pdf")
