@@ -1,0 +1,11 @@
+event,seconds
+MPI_Init,0.881763
+MPI_Comm_rank,0.000001
+MPI_Comm_size,0.000001
+MPI_Irecv,0.000129
+MPI_Wait,7.482964
+MPI_Ibcast,0.000356
+MPI_Wait,217.332710
+MPI_Isend,0.000221
+MPI_Wait,110.819427
+MPI_Finalize,3.887144
