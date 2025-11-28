@@ -5,10 +5,7 @@ mcts
 bin
 result
 *.csv
-experiments/report.pdf
-experiments/report.org~
-experiments/report.tex
-chart.pdf
-mpi_coletiva
-mpi_p2p_bloqueante
-mpi_p2p_naobloqueante
+/mpi_coletiva
+/mpi_p2p_bloqueante
+/mpi_p2p_naobloqueante
+*.pdf
